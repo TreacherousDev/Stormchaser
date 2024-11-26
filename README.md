@@ -45,6 +45,7 @@ A real-time typhoon visualization system that scrapes and animates Western Pacif
 - Supports landfall detection through color sampling
 
 ## 🎨 Visualization Features
+![1126-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/a9ae5de8-44f1-4b6e-b3fe-61e6ce39eb88)
 
 ### Typhoon Representation
 - **Symbol**: Animated rotating spiral with center dot
