@@ -5,18 +5,11 @@ from datetime import datetime, timedelta
 import western_pacific_map_maker as mapmaker
 from map_image_processor import MapImageProcessor
 
-typhoons = None
-earliest_time = None
-time_scale_factor = 1 / (12 * 60 * 60)  # 1 second per 12 hours in real-time 
-screen_width, screen_height = 1400, 1000
-image_path = "simple_western_pacific_map.png"  # Path to your image
-img = MapImageProcessor.load_image(image_path)
 
 def initialize_dataset():
-    # YEAR, MONTH, DAY
-    min_month = 11
-    min_day = 8
-    year=2013
+    min_month = 10
+    min_day = 13
+    year=2024
     global typhoons, earliest_time
     typhoons = ty.scrape_typhoon_data(year=year, min_date=datetime(year,min_month,min_day))
     # Parse the `time` strings into datetime objects and calculate start times
@@ -31,40 +24,6 @@ def initialize_dataset():
         typhoon['start_time'] = int(((first_time - earliest_time).total_seconds() * time_scale_factor) * 1000)
         print(typhoon['name'], typhoon['start_time'])
    
-initialize_dataset()
-
-def initialize_pygame():
-    pass
-
-# Initialize Pygame
-pygame.init()
-width, height = 1400, 1000
-screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
-pygame.display.set_caption("PROJECT STORMCHASER")
-
-# Load map background
-map_image = pygame.image.load(mapmaker.create_western_pacific_map()).convert()
-
-# Scale the map to fit the window size while maintaining the aspect ratio
-map_width, map_height = map_image.get_size()
-aspect_ratio = map_width / map_height
-new_width = width
-new_height = int(new_width / aspect_ratio)
-
-if new_height > height:
-    new_height = height
-    new_width = int(new_height * aspect_ratio)
-
-map_image = pygame.transform.scale(map_image, (new_width, new_height))
-
-category_colors = {
-    0: (135, 206, 235),
-    1: (100, 238, 100),  # Light Green (Calm Green)
-    2: (225, 225, 0),    # Bright Yellow
-    3: (255, 130, 0),    # Orange
-    4: (255, 0, 0),     # Red
-    5: (180, 0, 180)   
-}
 
 # Map latitude and longitude to screen coordinates
 def latlon_to_screen(lat, lon):
@@ -95,14 +54,13 @@ class Typhoon:
         # Font for rendering the typhoon name, wind speed, and pressure
         self.font = pygame.font.Font(None, 24)  # Default font with size 24
 
-    def foo(self, img):
+    def check_for_landfall(self, img):
         if img:
             screen_position = latlon_to_screen(self.current_position['lat'], self.current_position['long'])
             coordinate_color = MapImageProcessor.is_color_at_coordinate(
                 img, screen_position[0], screen_position[1], (0, 0, 70)
             )
             if self.is_in_water != coordinate_color and self.is_in_water:
-                print("Landfall detected")
                 # Add a cross at the landfall position with initial animation properties
                 self.landfall_crosses.append({
                     "position": screen_position,
@@ -118,14 +76,11 @@ class Typhoon:
             if cross["scale"] > 1.0:
                 cross["scale"] = max(cross["scale"] - 20.0 * dt, 1.0)  # Shrink to normal size
 
-            print(self.alpha)
             # Start fading only when the typhoon begins to fade
             cross["fade_alpha"] = self.alpha
 
         # Remove crosses that are fully transparent
         self.landfall_crosses = [cross for cross in self.landfall_crosses if cross["fade_alpha"] > 0]
-
-
         
     def draw_landfall_crosses(self, screen):
         """Draw all landfall crosses with transparency as diagonal X marks."""
@@ -240,7 +195,7 @@ class Typhoon:
         if self.current_position == point2:
             self.current_step += 1
         
-        self.foo(img)
+        self.check_for_landfall(img)
         
 
     def draw(self, screen):
@@ -282,14 +237,6 @@ class Typhoon:
 
         # Draw landfall crosses
         self.draw_landfall_crosses(screen)
-
-# Main animation function
-# Initialize position, alpha, and active status tracking
-typhoon_positions = {typhoon['name']: 0 for typhoon in typhoons}
-current_positions = {typhoon['name']: {'lat': typhoon['path'][0]['lat'], 'long': typhoon['path'][0]['long']} for typhoon in typhoons}
-current_colors = {typhoon['name']: (0, 0, 0, 0) for typhoon in typhoons}
-typhoon_alphas = {typhoon['name']: 0 for typhoon in typhoons}  # Start fully transparent
-typhoon_active = {typhoon['name']: True for typhoon in typhoons}
 
 
 # Play Button Class
@@ -381,6 +328,48 @@ def animate_typhoons():
         pygame.display.flip()
 
     pygame.quit()
-    
-# Start the animation
-animate_typhoons()
+
+
+
+
+typhoons = None
+earliest_time = None
+time_scale_factor = 1 / (12 * 60 * 60)  # 1 second per 12 hours in real-time 
+
+screen_width, screen_height = 1400, 1000
+image_path = "simple_western_pacific_map.png"  # Path to your image
+img = MapImageProcessor.load_image(image_path)
+
+# Initialize Pygame
+pygame.init()
+width, height = 1400, 1000
+screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
+pygame.display.set_caption("PROJECT STORMCHASER")
+# Load map background
+map_image = pygame.image.load(mapmaker.create_western_pacific_map()).convert()
+# Scale the map to fit the window size while maintaining the aspect ratio
+map_width, map_height = map_image.get_size()
+aspect_ratio = map_width / map_height
+new_width = width
+new_height = int(new_width / aspect_ratio)
+
+if new_height > height:
+    new_height = height
+    new_width = int(new_height * aspect_ratio)
+map_image = pygame.transform.scale(map_image, (new_width, new_height))
+
+
+category_colors = {
+    0: (135, 206, 235),
+    1: (100, 238, 100),  # Light Green (Calm Green)
+    2: (225, 225, 0),    # Bright Yellow
+    3: (255, 130, 0),    # Orange
+    4: (255, 0, 0),     # Red
+    5: (180, 0, 180)   
+}
+
+
+if __name__ == "__main__":
+    # Start the animation
+    initialize_dataset()
+    animate_typhoons()
