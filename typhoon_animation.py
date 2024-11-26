@@ -6,10 +6,7 @@ import western_pacific_map_maker as mapmaker
 from map_image_processor import MapImageProcessor
 
 
-def initialize_dataset():
-    min_month = 10
-    min_day = 13
-    year=2024
+def initialize_dataset(year=2024, min_month=1, min_day=1):
     global typhoons, earliest_time
     typhoons = ty.scrape_typhoon_data(year=year, min_date=datetime(year,min_month,min_day))
     # Parse the `time` strings into datetime objects and calculate start times
@@ -371,5 +368,5 @@ category_colors = {
 
 if __name__ == "__main__":
     # Start the animation
-    initialize_dataset()
+    initialize_dataset(year=2010)
     animate_typhoons()
