@@ -29,7 +29,7 @@ A real-time typhoon visualization system that scrapes and animates Western Pacif
   - Timestamps
 - Implements caching mechanism to store scraped data
 
-### Visualization Engine (`main.py`)
+### Visualization Engine (`typhoon_animation.py`)
 - Built with Pygame for smooth real-time animations
 - Features include:
   - Rotating typhoon symbols
@@ -83,14 +83,8 @@ Required packages:
 - numpy
 
 ### Running the Application
-1. Generate the map (first run only):
    ```python
-   python western_pacific_map_maker.py
-   ```
-
-2. Start the visualization:
-   ```python
-   python main.py
+   python typhoon_animation.py
    ```
 
 ### Controls
