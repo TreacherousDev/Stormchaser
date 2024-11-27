@@ -1,7 +1,7 @@
 # Project Stormchaser 🌀
 
 A real-time typhoon visualization system that scrapes and animates Western Pacific typhoon data.
-![1126-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/a9ae5de8-44f1-4b6e-b3fe-61e6ce39eb88)
+![11261-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/eb3d1328-e84d-424f-8b38-c1753caaf35b)
 
 ## 🌟 Features
 
