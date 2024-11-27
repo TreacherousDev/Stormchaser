@@ -9,9 +9,9 @@ A real-time typhoon visualization system that scrapes and animates Western Pacif
 - **Dynamic Color Coding**: Changes typhoon colors based on intensity categories
 - **Landfall Detection**: Automatically detects and marks typhoon landfall points
 - **Detailed Information Display**: Shows typhoon names, wind speeds, and pressure data
-- **Interactive Timeline**: Includes a play button and time display
-- **FPS Counter**: Monitors visualization performance
-- **Data Caching**: Implements efficient data storage and retrieval
+- **Interactive Timeline**: Includes a time display that matches the simulation accurately
+- **UI Elements**: Play / Pause, Skip 1 Week, and Return to Main Menu
+- **Data Caching**: Stores previously webscraped data to your computer for faster retrieval
 
 ## 🛠 Technical Components
 
@@ -28,7 +28,7 @@ A real-time typhoon visualization system that scrapes and animates Western Pacif
   - Wind speeds
   - Pressure data
   - Timestamps
-- Implements caching mechanism to store scraped data
+- Caches data as a '.JSON' to 'root/data' folder
 
 ### Visualization Engine (`typhoon_animation.py`)
 - Built with Pygame for smooth real-time animations
@@ -38,12 +38,8 @@ A real-time typhoon visualization system that scrapes and animates Western Pacif
   - Dynamic fade in/out effects
   - Landfall detection and marking
   - Time scaling for visualization
-  - Interactive controls
-
-### Map Image Processor
-- Handles map image loading and processing
-- Provides coordinate transformation utilities
-- Supports landfall detection through color sampling
+  - Pause / Play
+  - Skip 1 Week
 
 ## 🎨 Visualization Features
 
@@ -57,7 +53,7 @@ A real-time typhoon visualization system that scrapes and animates Western Pacif
       2: (225, 225, 0),    # Yellow
       3: (255, 130, 0),    # Orange
       4: (255, 0, 0),      # Red
-      5: (180, 0, 180)     # Purple
+      5: (255, 0, 255)     # Purple
   }
   ```
 - **Information Display**: Shows name, wind speed (km/h), and pressure (hPa)
@@ -84,12 +80,21 @@ Required packages:
 - numpy
 
 ### Running the Application
+1. Generate the map (first run only):
    ```python
-   python typhoon_animation.py
+   python scripts/western_pacific_map_maker.py
+   ```
+
+2. Start the visualization:
+   ```python
+   python scripts/stormchaser.py
    ```
 
 ### Controls
 - Click the "Play" button to start the animation
+- Click the "Pause" button to pause the animation
+- Click the "Skip 1 Week" button to jump 1 week forward into the timeline
+- Click the "Return to Menu" button to regenerate an animation
 - Close window to exit
 
 ## 📊 Data Structure
@@ -116,10 +121,10 @@ Key parameters that can be adjusted:
 
 ```python
 # Time scaling
-time_scale_factor = 1 / (12 * 60 * 60)  # 1 second = 12 hours
+TIME_SCALE_FACTOR = 1 / (12 * 60 * 60)  # 1 second = 12 hours
 
 # Screen dimensions
-screen_width, screen_height = 1400, 1000
+SCREEN_WIDTH, SCREEN_HEIGHT = 1200, 900
 
 # Animation parameters
 fade_in_duration = 1
@@ -137,10 +142,12 @@ fps_target = 120
 
 ## 📝 License
 
-<add license section>.
+WIP
 
 ## 🙏 Acknowledgments
 
 - Data source: Digital Typhoon (http://agora.ex.nii.ac.jp/digital-typhoon/)
 - Map data: Natural Earth via Cartopy
-- Inspiration: Real-time weather visualization systems
+- Compilation: Hispano @[zk12-dev](https://github.com/zk12-dev) 
+
+
