@@ -177,8 +177,6 @@ class Typhoon:
 
     def update(self, elapsed_time, dt):
         """Update typhoon and storm animation."""
-        self.check_for_landfall(img)
-        self.update_landfall_crosses(dt)
         
         # Does not arrive yet, skip
         if elapsed_time < self.start_time:
@@ -193,6 +191,8 @@ class Typhoon:
                 self.active = False
             return
 
+        self.update_landfall_crosses(dt)
+        self.check_for_landfall(img)
         # Update position
         point1 = self.path[self.current_step]
         point2 = self.path[self.current_step + 1]
@@ -261,16 +261,17 @@ class Typhoon:
 
         # Some random normalizing formula that changes the typhooon's rotation speed based on its strength
         typhoon_class = self.path[self.current_step].get('class', '0')
-        self.blade_angle += (1.5 + (pow(1 + typhoon_class, 1.5)/8)) * dt * 100
+        self.blade_angle += (1.5 + (pow(1 + typhoon_class, 1.7)/8)) * dt * 100
 
-# Play Button Class
-class Button:
-    def __init__(self, text, x, y, width, height, font, color, text_color):
+# Play/Pause Button Class
+class ToggleableButton:
+    def __init__(self, text, x, y, width, height, font, color, text_color, is_playing):
         self.text = text
         self.rect = pygame.Rect(x, y, width, height)
         self.font = font
         self.color = color
         self.text_color = text_color
+        self.is_playing = is_playing  # State to track if playing or paused
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, self.rect)
@@ -280,14 +281,19 @@ class Button:
 
     def is_clicked(self, mouse_pos):
         return self.rect.collidepoint(mouse_pos)
-    
 
-# Main Animation Function
+    def toggle(self):
+        """Toggle the button between Play and Pause."""
+        self.is_playing = not self.is_playing
+        self.text = "Pause" if self.is_playing else "Play"
+
+ # Main Animation Function
 def animate_typhoons():
     # Initialize Pygame
     pygame.init()
     screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
     pygame.display.set_caption("PROJECT STORMCHASER")
+
     # Load map background
     map_image = pygame.image.load(mapmaker.create_western_pacific_map()).convert()
     # Scale the map to fit the window size while maintaining the aspect ratio
@@ -301,32 +307,26 @@ def animate_typhoons():
         new_width = int(new_height * aspect_ratio)
     map_image = pygame.transform.scale(map_image, (new_width, new_height))
 
-
     clock = pygame.time.Clock()
 
     # Create Typhoon objects
     typhoon_objects = [
-            Typhoon(typhoon['name'], typhoon['path'], typhoon['start_time'], category_colors)
-            for typhoon in typhoons
-        ]
+        Typhoon(typhoon['name'], typhoon['path'], typhoon['start_time'], category_colors)
+        for typhoon in typhoons
+    ]
 
     running = True
-    game_started = False
     start_ticks = pygame.time.get_ticks()
     elapsed_time = 0
-    # Create play button
+
+    # Create play/pause button (defaulted to "paused")
     font = pygame.font.SysFont(None, 30)
-    # Define button dimensions and position for bottom-left corner
     button_width, button_height = 100, 50
     screen_width, screen_height = screen.get_size()
-
-    # Position the button in the bottom-left corner with 10px margin
-    button_x = 10  # 10px margin from the left edge
-    button_y = screen_height - button_height - 10  # 10px margin from the bottom edge
-
-    # Create the play button with the new position
-    play_button = Button("Play", button_x, button_y, button_width, button_height, font, (70, 130, 180), (255, 255, 255))
-
+    button_x = 10
+    button_y = screen_height - button_height - 10
+    play_button = ToggleableButton("Play", button_x, button_y, button_width, button_height, font, (70, 130, 180), (255, 255, 255), is_playing=False)
+    formatted_time = earliest_time.strftime('%Y-%m-%d %H:%M')
     
     while running:
         screen.fill((255, 255, 255))
@@ -335,41 +335,44 @@ def animate_typhoons():
         fps = clock.get_fps()
         fps_text = font.render(f"FPS: {fps:.2f}", True, (255, 255, 255))
         screen.blit(fps_text, (10, 10))
+        
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # Check if play button is clicked
+                # Check if play/pause button is clicked
                 if play_button.is_clicked(event.pos):
-                    game_started = True
-                    start_ticks = pygame.time.get_ticks()
-        
-         # Update and draw typhoons
-        
-        dt = clock.tick(60) / 1000.0  # Time delta in seconds
-        if game_started:
-            # Calculate the current time being played
-            elapsed_time = pygame.time.get_ticks() - start_ticks
-            current_play_time = earliest_time + timedelta(seconds=(elapsed_time/1000) * 43200)
+                    play_button.toggle()
+                    # Update start_ticks only when resuming
+                    if play_button.is_playing:
+                        start_ticks = pygame.time.get_ticks() - elapsed_time
 
-            # Format the time in a readable format (e.g., YYYY-MM-DD HH:MM)
+        # Update and draw typhoons only if not paused
+        if play_button.is_playing:
+            elapsed_time = pygame.time.get_ticks() - start_ticks
+            current_play_time = earliest_time + timedelta(seconds=(elapsed_time / 1000) / time_scale_factor)
+            
+            for typhoon in typhoon_objects:
+                typhoon.update(elapsed_time, clock.get_time() / 1000.0)
+
+        # Format the time in a readable format (e.g., YYYY-MM-DD HH:MM)
+        if play_button.is_playing:
             formatted_time = current_play_time.strftime('%Y-%m-%d %H:%M')
 
-            # Render the current time at the bottom-right of the screen
-            current_time_text = font.render(f"Current Time: {formatted_time}", True, (255, 255, 255))
-            screen.blit(current_time_text, (screen_width - current_time_text.get_width() - 10, screen_height - current_time_text.get_height() - 10))
+        # Render the current time at the bottom-right of the screen
+        current_time_text = font.render(f"Current Time: {formatted_time}", True, (255, 255, 255))
+        screen.blit(current_time_text, (screen_width - current_time_text.get_width() - 10, screen_height - current_time_text.get_height() - 10))
 
-            elapsed_time = pygame.time.get_ticks() - start_ticks
-
-            for typhoon in typhoon_objects:
-                typhoon.update(elapsed_time, dt)
-                typhoon.draw(screen, dt)
+        for typhoon in typhoon_objects:
+            typhoon.draw(screen, clock.get_time() / 1000.0)
 
         # Refresh display
         pygame.display.flip()
+        clock.tick(60)
 
     pygame.quit()
+
 
 # Function to render text input boxes
 def render_input_box(screen, label, x, y, width, height, active, text, font, color_active, color_inactive):
@@ -452,15 +455,13 @@ image_path = "simple_western_pacific_map.png"  # Path to your image
 img = MapImageProcessor.load_image(image_path)
 
 
-
-
 category_colors = {
     0: (135, 206, 235),
     1: (100, 238, 100),  # Light Green (Calm Green)
     2: (225, 225, 0),    # Bright Yellow
     3: (255, 130, 0),    # Orange
     4: (255, 0, 0),     # Red
-    5: (180, 0, 180)   
+    5: (255, 0, 255)   
 }
 
 
