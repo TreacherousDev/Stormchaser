@@ -6,26 +6,46 @@ import western_pacific_map_maker as mapmaker
 from map_image_processor import MapImageProcessor
 
 
-def initialize_dataset(year=2024, min_month=1, min_day=1):
+def initialize_dataset(start_date):
     global typhoons, earliest_time
-    typhoons = ty.scrape_typhoon_data(year=year, min_date=datetime(year,min_month,min_day))
-    # Parse the `time` strings into datetime objects and calculate start times
+
+    # Scrape typhoon data for the given year
+    typhoons = ty.scrape_typhoon_data(start_date.year)
+
+    # Filter typhoons based on `start_date`, which is already a datetime object
+    if start_date:
+        typhoons = [
+            typhoon for typhoon in typhoons
+            if datetime.strptime(typhoon['path'][0]['time'], '%Y-%m-%d %H:%M') >= start_date
+        ]
+
+    # Handle case where no typhoons are found
+    if not typhoons:
+        print(f"No typhoons found starting after {start_date}.")
+        return
+
+    # Calculate the earliest time among the filtered typhoons
     earliest_time = min(
         datetime.strptime(point['time'], '%Y-%m-%d %H:%M')
         for typhoon in typhoons
-        for point in typhoon['path'])
+        for point in typhoon['path']
+    )
 
+    # Set start times for each typhoon relative to the earliest time
     for typhoon in typhoons:
         first_time = datetime.strptime(typhoon['path'][0]['time'], '%Y-%m-%d %H:%M')
-        # Set `start_time` as the offset in milliseconds from the current time
         typhoon['start_time'] = int(((first_time - earliest_time).total_seconds() * time_scale_factor) * 1000)
         print(typhoon['name'], typhoon['start_time'])
    
 
 # Map latitude and longitude to screen coordinates
 def latlon_to_screen(lat, lon):
-    screen_x = int((lon - 100) * (width / 70))  # Longitude scaling
-    screen_y = int((40 - lat) * (height / 50))  # Latitude scaling
+    # Normalize longitude: Longitude range is [100, 180], so the total range is 80
+    screen_x = int((lon - 100) * (width / 80))  # Longitude scaling (0 to 80 maps to 0 to screen width)
+
+    # Normalize latitude: Latitude range is [0, 60], so the total range is 60
+    screen_y = int((60 - lat) * (height / 60))  # Latitude scaling (0 to 60 maps to 0 to screen height)
+
     return screen_x, screen_y
 
 
@@ -49,7 +69,7 @@ class Typhoon:
         self.landfall_crosses = []  # To store landfall crosses with a timer
 
         # Font for rendering the typhoon name, wind speed, and pressure
-        self.font = pygame.font.Font(None, 24)  # Default font with size 24
+        self.font = pygame.font.Font(None, 20)  # Default font with size 24
 
     def check_for_landfall(self, img):
         if img:
@@ -61,7 +81,7 @@ class Typhoon:
                 # Add a cross at the landfall position with initial animation properties
                 self.landfall_crosses.append({
                     "position": screen_position,
-                    "scale": 10.0,  # Start with a large scale for zoom-in animation
+                    "scale": 30.0,  # Start with a large scale for zoom-in animation
                     "fade_alpha": 255  # Fully opaque initially
                 })
             self.is_in_water = coordinate_color
@@ -71,7 +91,7 @@ class Typhoon:
         for cross in self.landfall_crosses:
             # Zoom-in effect: reduce the scale over time
             if cross["scale"] > 1.0:
-                cross["scale"] = max(cross["scale"] - 20.0 * dt, 1.0)  # Shrink to normal size
+                cross["scale"] = max(cross["scale"] - 80.0 * dt, 1.0)  # Shrink to normal size
 
             # Start fading only when the typhoon begins to fade
             cross["fade_alpha"] = self.alpha
@@ -91,7 +111,7 @@ class Typhoon:
 
             # Draw the diagonal cross (X) on the transparent surface
             center = cross_surface_size // 2
-            line_length = int(6 * cross["scale"])  # Scale the line length
+            line_length = int(4.5 * cross["scale"])  # Scale the line length
             pygame.draw.line(cross_surface, color, 
                             (center - line_length, center - line_length), 
                             (center + line_length, center + line_length), 3)  # Top-left to bottom-right
@@ -130,7 +150,7 @@ class Typhoon:
             return point2  # Snap to the target point
         return {'lat': new_lat, 'long': new_long}
 
-    def create_blade_surface(self, color_with_alpha, num_blades=6, base_radius=11, spiral_factor=11, blade_length=35):
+    def create_blade_surface(self, color_with_alpha, num_blades=6, base_radius=8, spiral_factor=10, blade_length=32):
         surface_size = 2 * (base_radius + spiral_factor * math.log1p(blade_length))
         blade_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
 
@@ -146,20 +166,25 @@ class Typhoon:
                 y_end = y + math.sin(blade_angle + t / spiral_factor) * radius
                 points.append((x_end, y_end))
             if len(points) > 1:
-                pygame.draw.lines(blade_surface, color_with_alpha, False, points, 5)
+                pygame.draw.lines(blade_surface, color_with_alpha, False, points, 4)
         return blade_surface.convert_alpha()
 
     def create_center_dot_surface(self, color_with_alpha):
-        dot_radius = 6
+        dot_radius = 5
         dot_surface = pygame.Surface((dot_radius * 2, dot_radius * 2), pygame.SRCALPHA)
         pygame.draw.circle(dot_surface, color_with_alpha, (dot_radius, dot_radius), dot_radius)
         return dot_surface.convert_alpha()
 
     def update(self, elapsed_time, dt):
         """Update typhoon and storm animation."""
+        self.check_for_landfall(img)
         self.update_landfall_crosses(dt)
+        
+        # Does not arrive yet, skip
         if elapsed_time < self.start_time:
             return
+        
+        # Fade out
         if self.current_step >= len(self.path) - 1:
             if self.alpha > 0:
                 self.alpha = max(self.alpha - (255 / self.fade_out_duration) * dt, 0)
@@ -192,49 +217,51 @@ class Typhoon:
         if self.current_position == point2:
             self.current_step += 1
         
-        self.check_for_landfall(img)
+
+    def draw(self, screen, dt):
+        # Early return for inactive typhoons
+        if self.alpha <= 0:
+            return
         
-
-    def draw(self, screen):
-        if self.alpha > 0:
-            screen_x, screen_y = latlon_to_screen(self.current_position['lat'], self.current_position['long'])
-            # Dynamically regenerate surfaces with current color and alpha
-            blade_surface = self.create_blade_surface(self.current_color)
-            center_dot = self.create_center_dot_surface(self.current_color)
-            rotated_blade = pygame.transform.rotate(blade_surface, self.blade_angle)
-
-            # Compute the blit position to center the rotated image
-            blade_rect = rotated_blade.get_rect(center=(screen_x, screen_y))
-            screen.blit(rotated_blade, blade_rect.topleft)
-
-            # Blit the center dot
-            dot_rect = center_dot.get_rect(center=(screen_x, screen_y))
-            screen.blit(center_dot, dot_rect.topleft)
-
-            # Get wind speed and pressure at the current point in the path
-            wind_speed = self.path[self.current_step].get('speed', 'N/A')
-            pressure = self.path[self.current_step].get('pressure', 'N/A')
-
-            # Render and blit the typhoon's name below the typhoon center
-            name_surface = self.font.render(self.name, True, (255, 255, 255))  # White text
-            name_rect = name_surface.get_rect(center=(screen_x, screen_y + 60))  # 20 pixels below the typhoon center
-            screen.blit(name_surface, name_rect.topleft)
-
-            # Render and blit wind speed below the name
-            wind_speed_surface = self.font.render(f"{wind_speed} km/h", True, (255, 255, 255))
-            wind_speed_rect = wind_speed_surface.get_rect(center=(screen_x, screen_y + 80))  # 20 pixels below the name
-            screen.blit(wind_speed_surface, wind_speed_rect.topleft)
-
-            # Render and blit pressure below the wind speed
-            pressure_surface = self.font.render(f"{pressure} hPa", True, (255, 255, 255))
-            pressure_rect = pressure_surface.get_rect(center=(screen_x, screen_y + 100))  # 20 pixels below the wind speed
-            screen.blit(pressure_surface, pressure_rect.topleft)
-
-            self.blade_angle += 2
-
         # Draw landfall crosses
-        self.draw_landfall_crosses(screen)
+        self.draw_landfall_crosses(screen) 
+        
+        screen_x, screen_y = latlon_to_screen(self.current_position['lat'], self.current_position['long'])
+        # Dynamically regenerate surfaces with current color and alpha
+        blade_surface = self.create_blade_surface(self.current_color)
+        center_dot = self.create_center_dot_surface(self.current_color)
+        rotated_blade = pygame.transform.rotate(blade_surface, self.blade_angle)
 
+        # Compute the blit position to center the rotated image
+        blade_rect = rotated_blade.get_rect(center=(screen_x, screen_y))
+        screen.blit(rotated_blade, blade_rect.topleft)
+
+        # Blit the center dot
+        dot_rect = center_dot.get_rect(center=(screen_x, screen_y))
+        screen.blit(center_dot, dot_rect.topleft)
+
+        # Get wind speed and pressure at the current point in the path
+        wind_speed = self.path[self.current_step].get('speed', 'N/A')
+        pressure = self.path[self.current_step].get('pressure', 'N/A')
+
+        # Render and blit the typhoon's name below the typhoon center
+        name_surface = self.font.render(self.name, True, (255, 255, 255))  # White text
+        name_rect = name_surface.get_rect(center=(screen_x, screen_y + 53))  # 20 pixels below the typhoon center
+        screen.blit(name_surface, name_rect.topleft)
+
+        # Render and blit wind speed below the name
+        wind_speed_surface = self.font.render(f"{wind_speed} km/h", True, (255, 255, 255))
+        wind_speed_rect = wind_speed_surface.get_rect(center=(screen_x, screen_y + 64))  # 20 pixels below the name
+        screen.blit(wind_speed_surface, wind_speed_rect.topleft)
+
+        # Render and blit pressure below the wind speed
+        pressure_surface = self.font.render(f"{pressure} hPa", True, (255, 255, 255))
+        pressure_rect = pressure_surface.get_rect(center=(screen_x, screen_y + 75))  # 20 pixels below the wind speed
+        screen.blit(pressure_surface, pressure_rect.topleft)
+
+        # Some random normalizing formula that changes the typhooon's rotation speed based on its strength
+        typhoon_class = self.path[self.current_step].get('class', '0')
+        self.blade_angle += (1.5 + (pow(1 + typhoon_class, 1.5)/8)) * dt * 100
 
 # Play Button Class
 class Button:
@@ -257,13 +284,31 @@ class Button:
 
 # Main Animation Function
 def animate_typhoons():
+    # Initialize Pygame
+    pygame.init()
+    screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
+    pygame.display.set_caption("PROJECT STORMCHASER")
+    # Load map background
+    map_image = pygame.image.load(mapmaker.create_western_pacific_map()).convert()
+    # Scale the map to fit the window size while maintaining the aspect ratio
+    map_width, map_height = map_image.get_size()
+    aspect_ratio = map_width / map_height
+    new_width = width
+    new_height = int(new_width / aspect_ratio)
+
+    if new_height > height:
+        new_height = height
+        new_width = int(new_height * aspect_ratio)
+    map_image = pygame.transform.scale(map_image, (new_width, new_height))
+
+
     clock = pygame.time.Clock()
 
     # Create Typhoon objects
     typhoon_objects = [
-        Typhoon(typhoon['name'], typhoon['path'], typhoon['start_time'], category_colors)
-        for typhoon in typhoons
-    ]
+            Typhoon(typhoon['name'], typhoon['path'], typhoon['start_time'], category_colors)
+            for typhoon in typhoons
+        ]
 
     running = True
     game_started = False
@@ -302,7 +347,7 @@ def animate_typhoons():
         
          # Update and draw typhoons
         
-        dt = clock.tick(120) / 1000.0  # Time delta in seconds
+        dt = clock.tick(60) / 1000.0  # Time delta in seconds
         if game_started:
             # Calculate the current time being played
             elapsed_time = pygame.time.get_ticks() - start_ticks
@@ -319,41 +364,94 @@ def animate_typhoons():
 
             for typhoon in typhoon_objects:
                 typhoon.update(elapsed_time, dt)
-                typhoon.draw(screen)
+                typhoon.draw(screen, dt)
 
         # Refresh display
         pygame.display.flip()
 
     pygame.quit()
 
+# Function to render text input boxes
+def render_input_box(screen, label, x, y, width, height, active, text, font, color_active, color_inactive):
+    color = color_active if active else color_inactive
+    pygame.draw.rect(screen, color, (x, y, width, height), 2)
+    label_surface = font.render(label, True, (0, 0, 0))
+    screen.blit(label_surface, (x - label_surface.get_width() - 10, y + height // 4))
+    text_surface = font.render(text, True, (0, 0, 0))
+    screen.blit(text_surface, (x + 5, y + height // 4))
 
+# Input UI function
+def input_date_ui():
+    pygame.init()
+    screen = pygame.display.set_mode((600, 400))
+    pygame.display.set_caption("Enter Start Date")
+    font = pygame.font.SysFont(None, 32)
+    clock = pygame.time.Clock()
+
+    # Input boxes for year, month, and day
+    input_boxes = [
+        {"label": "Year:", "x": 200, "y": 100, "width": 200, "height": 40, "active": False, "text": ""},
+        {"label": "Month (optional):", "x": 200, "y": 160, "width": 200, "height": 40, "active": False, "text": ""},
+        {"label": "Day (optional):", "x": 200, "y": 220, "width": 200, "height": 40, "active": False, "text": ""}
+    ]
+
+    color_active = pygame.Color("dodgerblue2")
+    color_inactive = pygame.Color("lightskyblue3")
+    done = False
+
+    while not done:
+        screen.fill((255, 255, 255))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return None  # Exit entirely
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for box in input_boxes:
+                    box["active"] = box["x"] < event.pos[0] < box["x"] + box["width"] and box["y"] < event.pos[1] < box["y"] + box["height"]
+            elif event.type == pygame.KEYDOWN:
+                for box in input_boxes:
+                    if box["active"]:
+                        if event.key == pygame.K_BACKSPACE:
+                            box["text"] = box["text"][:-1]
+                        elif event.key == pygame.K_RETURN:
+                            done = True
+                        else:
+                            box["text"] += event.unicode
+
+        for box in input_boxes:
+            render_input_box(screen, box["label"], box["x"], box["y"], box["width"], box["height"], box["active"], box["text"], font, color_active, color_inactive)
+
+        # Render submit instruction
+        submit_text = font.render("Press Enter to Submit", True, (0, 0, 0))
+        screen.blit(submit_text, (300 - submit_text.get_width() // 2, 300))
+
+        pygame.display.flip()
+        clock.tick(30)
+
+    pygame.quit()
+    
+    # Parse input into date components
+    year = input_boxes[0]["text"]
+    month = input_boxes[1]["text"] if input_boxes[1]["text"] else "1"
+    day = input_boxes[2]["text"] if input_boxes[2]["text"] else "1"
+
+    try:
+        start_date = datetime(int(year), int(month), int(day))
+        return start_date
+    except ValueError:
+        print("Invalid date input. Please restart and enter a valid date.")
+        return None
 
 
 typhoons = None
 earliest_time = None
 time_scale_factor = 1 / (12 * 60 * 60)  # 1 second per 12 hours in real-time 
-
-screen_width, screen_height = 1400, 1000
+width, height = 1200,900
+screen_width, screen_height = 1200,900
 image_path = "simple_western_pacific_map.png"  # Path to your image
 img = MapImageProcessor.load_image(image_path)
 
-# Initialize Pygame
-pygame.init()
-width, height = 1400, 1000
-screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
-pygame.display.set_caption("PROJECT STORMCHASER")
-# Load map background
-map_image = pygame.image.load(mapmaker.create_western_pacific_map()).convert()
-# Scale the map to fit the window size while maintaining the aspect ratio
-map_width, map_height = map_image.get_size()
-aspect_ratio = map_width / map_height
-new_width = width
-new_height = int(new_width / aspect_ratio)
 
-if new_height > height:
-    new_height = height
-    new_width = int(new_height * aspect_ratio)
-map_image = pygame.transform.scale(map_image, (new_width, new_height))
 
 
 category_colors = {
@@ -368,5 +466,6 @@ category_colors = {
 
 if __name__ == "__main__":
     # Start the animation
-    initialize_dataset(year=2010)
+    start_date = input_date_ui()  
+    initialize_dataset(start_date)
     animate_typhoons()

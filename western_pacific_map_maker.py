@@ -20,15 +20,15 @@ def create_western_pacific_map(output_path="western_pacific_map.png"):
         return output_path
 
     # Set up the figure and axis with the PlateCarree projection
-    fig = plt.figure(figsize=(10, 7), dpi=300)
+    fig = plt.figure(figsize=(8, 6), dpi=300)
     ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
 
     # Western Pacific Map Region
-    ax.set_extent([100, 170, -10, 40], crs=ccrs.PlateCarree())  
+    ax.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())  
 
     # Add Land and Ocean Features
-    ax.add_feature(cfeature.LAND, facecolor='darkgreen')
-    ax.add_feature(cfeature.OCEAN, facecolor=rgb_to_normalized(0, 0, 70))
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m', facecolor='darkgreen'))
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '10m', facecolor=rgb_to_normalized(0, 0, 70)))
     # Add country boundaries
     ax.add_feature(cfeature.BORDERS, linestyle=':', edgecolor='black', linewidth=1)
 
@@ -54,8 +54,8 @@ def create_simple_western_pacific_map(output_path="simple_western_pacific_map.pn
         return output_path
 
     # Desired resolution in pixels
-    width_pixels = 1400
-    height_pixels = 1000
+    width_pixels = 1200
+    height_pixels = 900
     dpi = 300  # Dots per inch for high-quality output
 
     # Calculate figsize (in inches) based on desired resolution
@@ -66,11 +66,11 @@ def create_simple_western_pacific_map(output_path="simple_western_pacific_map.pn
     ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
 
     # Western Pacific Map Region
-    ax.set_extent([100, 170, -10, 40], crs=ccrs.PlateCarree())  
+    ax.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())  
 
     # Add Land and Ocean Features with no anti-aliasing for the edges
-    ax.add_feature(cfeature.LAND, facecolor='darkgreen')
-    ax.add_feature(cfeature.OCEAN, facecolor=rgb_to_normalized(0, 0, 70))
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m', facecolor='darkgreen'))
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '10m', facecolor=rgb_to_normalized(0, 0, 70)))
 
     # Adjust layout to avoid anti-aliasing and smooth transitions
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)

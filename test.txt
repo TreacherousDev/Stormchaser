@@ -1,0 +1,67 @@
+ignore this lol, this is where i dump my unfinished ideas
+
+def update_lightning(self, elapsed_time):
+        """Update lightning animation state."""
+        now = datetime.now()
+        if (now - self.last_lightning_time).total_seconds() >= 0.5:  # Trigger lightning every 3 seconds
+            self.lightning_active = True
+            self.last_lightning_time = now
+            self.lightning_strikes = [
+                self.generate_lightning_strike() for _ in range(random.randint(3, 6))
+            ]  # Generate 3-6 random strikes
+
+        if self.lightning_active:
+            # Check if lightning duration has passed
+            if (now - self.last_lightning_time).total_seconds() >= self.lightning_duration:
+                self.lightning_active = False
+                self.lightning_strikes = []  # Clear strikes after duration
+
+    def generate_lightning_strike(self):
+        """Generate a single lightning strike as a random line around the typhoon."""
+        angle = random.uniform(0, 2 * math.pi)  # Random direction
+        length = random.uniform(0.5, 2)  # Random length of the lightning strike
+        x_start = self.current_position['long'] + random.uniform(-1, 1)
+        y_start = self.current_position['lat'] + random.uniform(-1, 1)
+        x_end = x_start + math.cos(angle) * length
+        y_end = y_start + math.sin(angle) * length
+        return {'start': (x_start, y_start), 'end': (x_end, y_end)}
+
+    def draw_lightning(self, screen):
+        """Draw lightning strikes around the typhoon."""
+        if self.lightning_active:
+            for strike in self.lightning_strikes:
+                # Convert start and end points from lat/lon to screen coordinates
+                start_x, start_y = latlon_to_screen(strike['start'][1], strike['start'][0])  # lon, lat
+                end_x, end_y = latlon_to_screen(strike['end'][1], strike['end'][0])  # lon, lat
+                
+                # Draw the lightning strike
+                pygame.draw.line(screen, (255, 255, 0), (start_x, start_y), (end_x, end_y), 2)  # Yellow line
+
+
+
+                # Storm animation variables
+        self.storm_active = False
+        self.last_storm_time = datetime.now() - timedelta(seconds=3)  # Start immediately
+        self.storm_duration = 1  # Seconds
+        self.storm_radius = 0
+
+
+def update_storm(self, elapsed_time):
+        """Update storm animation state."""
+        now = datetime.now()
+        if (now - self.last_storm_time).total_seconds() >= 1.8:  # Trigger storm every 3 seconds
+            self.storm_active = True
+            self.storm_radius = 35
+            self.last_storm_time = now
+
+        if self.storm_active:
+            self.storm_radius += 0.12  # Increase radius
+            if self.storm_radius > 50:  # End storm after radius exceeds a threshold
+                self.storm_active = False
+
+    def draw_storm(self, screen, screen_x, screen_y):
+        """Draw storm animation."""
+        if self.storm_active:
+            # Storm is represented by a pulsating circle
+            color = (255, 255, 255, max(0, 255 - self.storm_radius * 2))  # Fades out
+            pygame.draw.circle(screen, color, (screen_x, screen_y), self.storm_radius, 2)

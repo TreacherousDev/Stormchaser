@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 
 # Base URL for the website
 BASE_URL = "http://agora.ex.nii.ac.jp"
-CACHE_FILE = "typhoon_data_cache.json"  # Cache file location
 
 def fetch_main_page(year="2024"):
     """Fetch the main typhoon page for the given year."""
@@ -33,8 +32,8 @@ def fetch_typhoon_details(link):
         return None
     return response.text
 
-def extract_typhoon_track(detail_page_html, min_date=None):
-    """Extract detailed track data from the typhoon's track page and filter by minimum date."""
+def extract_typhoon_track(detail_page_html):
+    """Extract detailed track data from the typhoon's track page."""
     soup = BeautifulSoup(detail_page_html, 'html.parser')
     typhoon_name = soup.find("div", class_="TYNAME").text.strip().lstrip().replace("Typhoon", "", 1).lstrip()
 
@@ -69,76 +68,75 @@ def extract_typhoon_track(detail_page_html, min_date=None):
         cells = tr.find_all("td")
         row = {headers[i]: cells[i].text.strip() for i in range(len(cells))}
         
-        # Construct the time string and filter by minimum date
+        # Construct the time string
         time_str = f"{row['Year']}-{row['Month']}-{row['Day']} {row['Hour']}:00"
         time_obj = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
 
-        # Check if the typhoon's time is on or after the specified min_date
-        if min_date is None or time_obj >= min_date:
-            lat = float(row['Lat.'])
-            long = float(row['Long.'])
-            wind_speed = int(row['Wind (kt)'])
-            pressure = int(row['Pressure (hPa)'])
+        lat = float(row['Lat.'])
+        long = float(row['Long.'])
+        wind_speed = int(row['Wind (kt)'])
+        pressure = int(row['Pressure (hPa)'])
 
-            # Convert wind speed from knots to km/h
-            wind_speed_kmh = int(wind_speed * 1.852) 
+        # Convert wind speed from knots to km/h
+        wind_speed_kmh = int(wind_speed * 1.852) 
 
-            # Determine the typhoon class based on the Saffir-Simpson scale
-            if wind_speed_kmh < 64:  # Below Tropical Storm
-                typhoon_class = 0  
-            elif 64 <= wind_speed_kmh < 118:  # Tropical Storm
-                typhoon_class = 1
-            elif 118 <= wind_speed_kmh < 154:  # Category 1
-                typhoon_class = 2
-            elif 154 <= wind_speed_kmh < 178:  # Category 2
-                typhoon_class = 3
-            elif 178 <= wind_speed_kmh < 209:  # Category 3
-                typhoon_class = 4
-            elif 209 <= wind_speed_kmh < 252:  # Category 4
-                typhoon_class = 5
-            else:  # Category 5
-                typhoon_class = 6
+        # Determine the typhoon class based on the Saffir-Simpson scale
+        if wind_speed_kmh < 64:  # Below Tropical Storm
+            typhoon_class = 0  
+        elif 64 <= wind_speed_kmh < 118:  # Tropical Storm
+            typhoon_class = 1
+        elif 118 <= wind_speed_kmh < 154:  # Category 1
+            typhoon_class = 2
+        elif 154 <= wind_speed_kmh < 178:  # Category 2
+            typhoon_class = 3
+        elif 178 <= wind_speed_kmh < 209:  # Category 3
+            typhoon_class = 4
+        elif 209 <= wind_speed_kmh < 252:  # Category 4
+            typhoon_class = 5
+        else:  # Category 5
+            typhoon_class = 6
 
-            # Assign modified wind speed for visualization purposes
-            modified_wind_speed = str(wind_speed_kmh) if wind_speed_kmh >= 64 else "< 64"
+        # Assign modified wind speed for visualization purposes
+        modified_wind_speed = str(wind_speed_kmh) if wind_speed_kmh >= 64 else "< 64"
 
-            # Append to the typhoon track list
-            typhoon_track.append({
-                "time": time_str,
-                "lat": lat,
-                "long": long,
-                "class": typhoon_class,
-                "speed": modified_wind_speed,
-                "pressure": pressure
-            })
-
+        # Append to the typhoon track list
+        typhoon_track.append({
+            "time": time_str,
+            "lat": lat,
+            "long": long,
+            "class": typhoon_class,
+            "speed": modified_wind_speed,
+            "pressure": pressure
+        })
 
     if typhoon_track:
         return {"name": typhoon_name, "path": typhoon_track}
     return None
 
-def load_cache():
-    """Load cached data from a file if it exists."""
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, "r") as file:
+def load_cache(year):
+    """Load cached data for the specified year if it exists."""
+    cache_file = f"typhoon_data_{year}.json"
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as file:
             try:
                 data = json.load(file)
-                print("Loaded data from cache.")
+                print(f"Loaded data from cache: {cache_file}")
                 return data
             except json.JSONDecodeError:
-                print("Error loading cached data. Scraping new data.")
+                print(f"Error loading cache file {cache_file}. Scraping new data.")
                 return None
     return None
 
-def save_cache(data):
-    """Save the scraped data to a cache file."""
-    with open(CACHE_FILE, "w") as file:
+def save_cache(data, year):
+    """Save the scraped data to a year-specific cache file."""
+    cache_file = f"typhoon_data_{year}.json"
+    with open(cache_file, "w") as file:
         json.dump(data, file, indent=4)
-    print("Data cached to file.")
+    print(f"Data cached to file: {cache_file}")
 
-def scrape_typhoon_data(year=2024, min_date=None):
+def scrape_typhoon_data(year=2024):
     """Main function to scrape all typhoon data for the specified year, using cache if available."""
-    cached_data = load_cache()
+    cached_data = load_cache(year)
     if cached_data:
         return cached_data  # Return cached data if available
 
@@ -155,12 +153,12 @@ def scrape_typhoon_data(year=2024, min_date=None):
         if detail_page_html is None:
             continue
 
-        typhoon_info = extract_typhoon_track(detail_page_html, min_date)
+        typhoon_info = extract_typhoon_track(detail_page_html)
         if typhoon_info:
             typhoon_data.append(typhoon_info)
 
     # Cache the newly scraped data
     if typhoon_data:
-        save_cache(typhoon_data)
+        save_cache(typhoon_data, year)
 
     return typhoon_data
