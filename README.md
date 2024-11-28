@@ -134,6 +134,38 @@ fade_out_duration = 0.5
 fps_target = 120
 ```
 
+## 🛠️ Building from Source
+1. Install `pyinstaller`
+```bash
+pip install pyinstaller
+```
+2. Navigate to the root folder (example):
+```bash
+cd C:\Users\User\Documents\GitHub\Project Stormchaser
+```
+3. Run the following command:
+```bash
+pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --noconsole --icon=resources\stormchaser.ico scripts/stormchaser.py
+```
+4. View the output dist folder in file explorer and go inside `_internals`
+
+5. Move both the `data` and `resources` folder outside, so the structure will look like this:
+```
+─dist
+│   └───stormchaser
+│       ├───data
+│       ├───resources
+│       └───_internal
+│           ├───cartopy
+│           ├───certifi
+│           ├───...other
+```
+6. Launch the executable located inside `stormchaser`, and ensure it is working correctly.
+   
+7. You can now package `stormchaser` as a ZIP, or use software installer setups like [Inno Setup Compiler](https://jrsoftware.org/isinfo.php)
+
+
+
 ## 🤝 Contributing
 
 1. Fork the repository
