@@ -32,7 +32,7 @@ See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app i
   - Timestamps
 - Caches data as a '.JSON' to 'root/data' folder
 
-### Visualization Engine (`typhoon_animation.py`)
+### Visualization Engine (`stormchaser.py`)
 - Built with Pygame for smooth real-time animations
 - Features include:
   - Rotating typhoon symbols
