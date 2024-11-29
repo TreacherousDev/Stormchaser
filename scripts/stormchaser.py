@@ -168,18 +168,27 @@ def initialize_input_ui(screen, screen_width, screen_height):
     title_font = pygame.font.SysFont("Impact", 58)  # Larger font for title
     button_font = pygame.font.SysFont("Impact", 15)  # Font for buttons
     clock = pygame.time.Clock()
-
-    # Load map background
+    current_map = None
     map_image = pygame.image.load(mapmaker.get_detailed_map_image()).convert()
-    map_width, map_height = map_image.get_size()
-    aspect_ratio = map_width / map_height
-    new_width = screen_width
-    new_height = int(new_width / aspect_ratio)
 
-    if new_height > screen_height:
-        new_height = screen_height
-        new_width = int(new_height * aspect_ratio)
-    map_image = pygame.transform.scale(map_image, (new_width, new_height))
+    def get_map_image(next_map):
+        nonlocal map_image, current_map
+        # Load map background
+        if current_map == next_map:
+            return map_image
+        
+        map_image = pygame.image.load(mapmaker.get_detailed_map_image(next_map)).convert()
+        map_width, map_height = map_image.get_size()
+        aspect_ratio = map_width / map_height
+        new_width = screen_width
+        new_height = int(new_width / aspect_ratio)
+
+        if new_height > screen_height:
+            new_height = screen_height
+            new_width = int(new_height * aspect_ratio)
+        map_image = pygame.transform.scale(map_image, (new_width, new_height))
+        current_map = next_map
+        return map_image
 
     # Define the width and height of each input box
     input_box_width = 100
@@ -241,8 +250,10 @@ def initialize_input_ui(screen, screen_width, screen_height):
                             box["text"] = box["text"][:-1]
                         else:
                             box["text"] += event.unicode
-
-        screen.blit(map_image, (0, 0))
+                            
+        selected_basin = next((button["code"] for button in buttons if button["active"]), None)
+        next_map = selected_basin.replace("_", " ").title()
+        screen.blit(get_map_image(next_map), (0, 0))
 
         for box in input_boxes:
             render_input_box(screen, box["label"], box["x"], box["y"], box["width"], box["height"], box["active"], box["text"], font, color_active, color_inactive, label_font)
