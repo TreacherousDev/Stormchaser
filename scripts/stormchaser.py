@@ -461,8 +461,8 @@ def animate_typhoons(year, basin):
 def main():
     pygame.init()
     pygame.font.init()
-    screen_height = 450
-    screen_width = 600
+    screen_height = 900
+    screen_width = 1200
     screen = pygame.display.set_mode((screen_width, screen_height))
     pygame.display.set_caption("PROJECT STORMCHASER MAIN MENU")
     

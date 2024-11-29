@@ -19,10 +19,10 @@ class Typhoon:
         self.basin = basin
         self.basin_boundaries = {
             "western_pacific": [100, 180, 0, 60],
-            "northern_atlantic": [-100, -20, 0, 50],
-            "eastern_pacific": [-180, -100, 0, 50],
+            "northern_atlantic": [-100, -20, 0, 60],
+            "eastern_pacific": [-175, -95, 0, 60],
             "northern_indian": [50, 100, 0, 30],
-            "southern_indian": [20, 120, -40, 0]
+            "southern_indian": [20, 120, -75, 0]
         }
 
         self.current_step = 0
@@ -31,7 +31,7 @@ class Typhoon:
         self.active = True
         self.blade_angle = 0
         self.current_color = (0, 0, 0, 0)  # Start fully transparent
-        self.is_in_land = False
+        self.is_in_water = True
         self.landfall_crosses = []  # To store landfall crosses with a timer
 
         # Font for rendering the typhoon name, wind speed, and pressure
@@ -65,16 +65,16 @@ class Typhoon:
         if img:
             screen_position = self.latlon_to_screen(self.current_position['lat'], self.current_position['long'])
             coordinate_color = MapImageProcessor.is_color_at_coordinate(
-                img, screen_position[0], screen_position[1], (0, 100, 0)
+                img, screen_position[0], screen_position[1], (0, 0, 70)
             )
-            if self.is_in_land != coordinate_color and not self.is_in_land:
+            if self.is_in_water != coordinate_color and self.is_in_water:
                 # Add a cross at the landfall position with initial animation properties
                 self.landfall_crosses.append({
                     "position": screen_position,
                     "scale": 30.0,  # Start with a large scale for zoom-in animation
                     "fade_alpha": 255  # Fully opaque initially
                 })
-            self.is_in_land = coordinate_color
+            self.is_in_water = coordinate_color
             
     def update_landfall_crosses(self, dt):
         """Update the animation properties of landfall crosses."""

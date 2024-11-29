@@ -7,10 +7,10 @@ from PIL import Image  # For resizing simple maps
 
 BASINS = {
     "Western Pacific": [100, 180, 0, 60],
-    "Northern Atlantic": [-100, -20, 0, 50],
-    "Eastern Pacific": [-180, -100, 0, 50],
+    "Northern Atlantic": [-100, -20, 0, 60],
+    "Eastern Pacific": [-175, -95, 0, 60],
     "Northern Indian": [50, 100, 0, 30],
-    "Southern Indian": [20, 120, -40, 0],
+    "Southern Indian": [20, 120, -75, 0]
     # South Pacific is bugged because it corsses the border of Cartopy's Map
     # "Southern Pacific": [160, 260, -50, 0]
 }
