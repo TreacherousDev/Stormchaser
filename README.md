@@ -1,12 +1,12 @@
 # Project Stormchaser 🌀
 
-A real-time typhoon visualization system that scrapes and animates Western Pacific typhoon data.
-
+A real-time typhoon visualization system that scrapes and animates tropical storms worldwide
 See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app installation
+
 ![11261-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/eb3d1328-e84d-424f-8b38-c1753caaf35b)
 
 ## 🌟 Features
-
+- **Supports 5 Different Regions**: Northern Atlantic, Eastern Pacific, Western Pacific, Northern Indian and Southern Indian
 - **Real-time Typhoon Tracking**: Visualizes typhoon paths with smooth animations
 - **Dynamic Color Coding**: Changes typhoon colors based on intensity categories
 - **Landfall Detection**: Automatically detects and marks typhoon landfall points
@@ -17,8 +17,8 @@ See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app i
 
 ## 🛠 Technical Components
 
-### Map Generation (`western_pacific_map_maker.py`)
-- Creates high-resolution maps of the Western Pacific region
+### Map Generation (`map_maker.py`)
+- Creates high-resolution maps of tropcial storm basins
 - Utilizes Cartopy for accurate geographical projections
 - Supports both detailed and simplified map versions
 - Features include land masses, ocean, country borders, and basic elevation data
@@ -84,7 +84,7 @@ Required packages:
 ### Running the Application
 1. Generate the map (first run only):
    ```python
-   python scripts/western_pacific_map_maker.py
+   python scripts/map_maker.py
    ```
 
 2. Start the visualization:
@@ -145,7 +145,7 @@ cd C:\Users\User\Documents\GitHub\Project Stormchaser
 ```
 3. Run the following command:
 ```bash
-pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --noconsole --icon=resources\stormchaser.ico scripts/stormchaser.py
+pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --noconsole --icon=resources\_stormchaser.ico scripts/stormchaser.py
 ```
 4. View the output dist folder in file explorer and go inside `_internals`
 
