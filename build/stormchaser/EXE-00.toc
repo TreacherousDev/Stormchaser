@@ -4,7 +4,7 @@
  False,
  True,
  ['C:\\Users\\adant\\OneDrive\\Documents\\GitHub\\Project '
-  'Stormchaser\\resources\\stormchaser.ico'],
+  'Stormchaser\\resources\\_stormchaser.ico'],
  None,
  False,
  False,
@@ -92,7 +92,7 @@
  [],
  False,
  False,
- 1732743238,
+ 1732889337,
  [('runw.exe',
    'C:\\Users\\adant\\AppData\\Roaming\\Python\\Python312\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')],

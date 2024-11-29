@@ -44,7 +44,7 @@ class MapImageProcessor:
             pixel_color = img.getpixel((x, y))
             return pixel_color == target_color
         except Exception as e:
-            print(f"Error checking pixel color: {e}")
+            # print(f"Error checking pixel color: {e}")
             return False
 
     @staticmethod
@@ -66,5 +66,5 @@ class MapImageProcessor:
             
             return img.getpixel((x, y))
         except Exception as e:
-            print(f"Error getting pixel color: {e}")
+            # print(f"Error getting pixel color: {e}")
             return None

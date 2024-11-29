@@ -1,11 +1,11 @@
-
 import pygame
 import math
+from math import radians, tan, log, pi
 from datetime import datetime
 from map_image_processor import MapImageProcessor
 
 class Typhoon:
-    def __init__(self, name, path, start_time, category_colors, screen_width, screen_height, time_scale_factor, reference_map, fade_in_duration=1, fade_out_duration=0.5, ):
+    def __init__(self, name, path, start_time, category_colors, screen_width, screen_height, time_scale_factor, reference_map, basin, fade_in_duration=1, fade_out_duration=0.5, ):
         self.name = name
         self.path = path
         self.start_time = start_time
@@ -16,6 +16,14 @@ class Typhoon:
         self.screen_height = screen_height
         self.time_scale_factor = time_scale_factor
         self.reference_map = reference_map
+        self.basin = basin
+        self.basin_boundaries = {
+            "western_pacific": [100, 180, 0, 60],
+            "northern_atlantic": [-100, -20, 0, 50],
+            "eastern_pacific": [-180, -100, 0, 50],
+            "northern_indian": [50, 100, 0, 30],
+            "southern_indian": [20, 120, -40, 0]
+        }
 
         self.current_step = 0
         self.current_position = {'lat': path[0]['lat'], 'long': path[0]['long']}
@@ -23,36 +31,50 @@ class Typhoon:
         self.active = True
         self.blade_angle = 0
         self.current_color = (0, 0, 0, 0)  # Start fully transparent
-        self.is_in_water = True
+        self.is_in_land = False
         self.landfall_crosses = []  # To store landfall crosses with a timer
 
         # Font for rendering the typhoon name, wind speed, and pressure
         self.font = pygame.font.Font(None, 20)  # Default font with size 24
 
-    # Map latitude and longitude to screen coordinates
-    def latlon_to_screen(self, lat, lon):
-        # Normalize longitude: Longitude range is [100, 180], so the total range is 80
-        screen_x = int((lon - 100) * (self.screen_width / 80))  # Longitude scaling (0 to 80 maps to 0 to screen width)
 
-        # Normalize latitude: Latitude range is [0, 60], so the total range is 60
-        screen_y = int((60 - lat) * (self.screen_height / 60))  # Latitude scaling (0 to 60 maps to 0 to screen height)
+    def latlon_to_screen(self, lat, lon):
+        """
+        Convert latitude and longitude to screen coordinates using the Plate Carrée projection.
+        Maps directly to the linear grid of the Plate Carrée background map.
+        """
+        if self.basin not in self.basin_boundaries:
+            raise ValueError(f"Unknown basin: {self.basin}")
+
+        # Get basin boundaries
+        min_lon, max_lon, min_lat, max_lat = self.basin_boundaries[self.basin]
+
+        # Longitude (x-axis) - linear mapping
+        lon_range = max_lon - min_lon
+        screen_x = int((lon - min_lon) * (self.screen_width / lon_range))
+
+        # Latitude (y-axis) - linear mapping
+        lat_range = max_lat - min_lat
+        screen_y = int((max_lat - lat) * (self.screen_height / lat_range))
 
         return screen_x, screen_y
-    
+
+
+        
     def check_for_landfall(self, img):
         if img:
             screen_position = self.latlon_to_screen(self.current_position['lat'], self.current_position['long'])
             coordinate_color = MapImageProcessor.is_color_at_coordinate(
-                img, screen_position[0], screen_position[1], (0, 0, 70)
+                img, screen_position[0], screen_position[1], (0, 100, 0)
             )
-            if self.is_in_water != coordinate_color and self.is_in_water:
+            if self.is_in_land != coordinate_color and not self.is_in_land:
                 # Add a cross at the landfall position with initial animation properties
                 self.landfall_crosses.append({
                     "position": screen_position,
                     "scale": 30.0,  # Start with a large scale for zoom-in animation
                     "fade_alpha": 255  # Fully opaque initially
                 })
-            self.is_in_water = coordinate_color
+            self.is_in_land = coordinate_color
             
     def update_landfall_crosses(self, dt):
         """Update the animation properties of landfall crosses."""
@@ -216,7 +238,7 @@ class Typhoon:
         screen.blit(name_surface, name_rect.topleft)
 
         # Render and blit wind speed below the name
-        wind_speed_surface = self.font.render(f"{wind_speed} km/h", True, (255, 255, 255))
+        wind_speed_surface = self.font.render(f"{wind_speed} kt", True, (255, 255, 255))
         wind_speed_rect = wind_speed_surface.get_rect(center=(screen_x, screen_y + 64))  # 20 pixels below the name
         screen.blit(wind_speed_surface, wind_speed_rect.topleft)
 

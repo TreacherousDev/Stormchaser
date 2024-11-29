@@ -32,7 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['resources\\stormchaser.ico'],
+    icon=['resources\\_stormchaser.ico'],
 )
 coll = COLLECT(
     exe,

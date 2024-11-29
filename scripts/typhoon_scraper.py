@@ -1,147 +1,159 @@
-import requests
 import os
-import sys
 import json
-from datetime import datetime
+import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 
-# Base URL for the website
-BASE_URL = os.getenv("BASE_URL", "http://agora.ex.nii.ac.jp")
+# Base URL of the website
+BASE_URL = "https://ncics.org/ibtracs/index.php"
+BASE_URL_ALT = "https://ncics.org/ibtracs/"
 
-# Path to the "data" folder
-DATA_FOLDER = "data"
+BASIN_ABBREVIATIONS = {
+    "Northern Atlantic": "na",
+    "Eastern Pacific" : "ep",
+    "Western Pacific": "wp",
+    "Northern Indian": "ni",
+    "Southern Indian": "si"
+    # "Southern Pacific": "sp"
+}
 
-def get_resource_path(relative_path):
-    """Get the absolute path to the resource file, works both in development and PyInstaller bundle."""
-    if getattr(sys, 'frozen', False):
-        # If running in a bundled PyInstaller app
-        base_path = sys._MEIPASS
-    else:
-        # If running in development mode
-        base_path = os.path.dirname(os.path.abspath(__file__))
+def fetch_year_page(year):
+    """Fetch the page for the given year."""
+    url = f"{BASE_URL}?name=YearBasin-{year}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Failed to retrieve page for year {year}: {response.status_code}")
+        return None
+    return response.text
+
+def extract_links_from_second_table(html):
+    """Extract and organize links for each typhoon basin."""
+    soup = BeautifulSoup(html, 'html.parser')
+    tables = soup.find_all('table', {'class': 'ishade', 'summary': 'Layout table.'})
     
-    return os.path.join(base_path, relative_path)
+    if len(tables) < 2:
+        print("Less than two tables found on the page.")
+        return None
+    
+    table = tables[1]
+    
+    headers = table.find('tr').find_all('td')
+    basins = [header.text.strip() for header in headers]
+    
+    basin_links = {basin: [] for basin in basins}
+    
+    rows = table.find_all('tr')[1:]
+    for row in rows:
+        cells = row.find_all('td')
+        for index, cell in enumerate(cells):
+            links = cell.find_all('a', href=True)
+            for link in links:
+                basin_links[basins[index]].append(f"{BASE_URL_ALT}{link['href']}")
+    
+    return basin_links
 
-def ensure_data_folder():
-    """Ensure that the data folder exists next to the 'scripts' folder."""
-    # Get the base directory of the 'data' folder relative to the project root
-    data_path = get_resource_path('data')
-
-    # Ensure the 'data' folder exists, create it if it doesn't
-    if not os.path.exists(data_path):
-        os.makedirs(data_path)
-
-    return data_path
-
-def fetch_main_page(year="2024"):
-    """Fetch the main typhoon page for the given year."""
-    main_url = f"{BASE_URL}/digital-typhoon/year/wnp/{year}.html.en"
-    response = requests.get(main_url)
+def scrape_fourth_table(link):
+    """Scrape the fourth table from the given link."""
+    response = requests.get(link)
     if response.status_code != 200:
-        print(f"Failed to retrieve main webpage: {response.status_code}")
-        return None
-    return response.text
-
-def get_typhoon_links(page_html):
-    """Extract typhoon summary links from the main page HTML."""
-    soup = BeautifulSoup(page_html, 'html.parser')
-    links = [a_tag["href"] for a_tag in soup.find_all("a", href=True) if "/digital-typhoon/summary/wnp/s" in a_tag["href"]]
-    return links
-
-def fetch_typhoon_details(link):
-    """Fetch detailed typhoon track information from a given link."""
-    full_url = BASE_URL + link
-    print(f"Visiting {full_url}...")
-    response = requests.get(full_url)
-    if response.status_code != 200:
-        print(f"Failed to retrieve {full_url}: {response.status_code}")
-        return None
-    return response.text
-
-def extract_typhoon_track(detail_page_html):
-    """Extract detailed track data from the typhoon's track page."""
-    soup = BeautifulSoup(detail_page_html, 'html.parser')
-    typhoon_name = soup.find("div", class_="TYNAME").text.strip().lstrip().replace("Typhoon", "", 1).lstrip()
-
-    # Find the link to the detailed track information
-    detail_link_tag = soup.find("a", string="Detailed Track Information")
-    if not detail_link_tag:
-        print(f"No 'Detailed Track Information' link found for {typhoon_name}")
+        print(f"Failed to retrieve page: {response.status_code}")
         return None
 
-    detail_link = detail_link_tag["href"]
-    detail_full_url = BASE_URL + detail_link
-    print(f"Found Detailed Track Information at {detail_full_url}")
-
-    # Fetch the detailed track data
-    detail_response = requests.get(detail_full_url)
-    if detail_response.status_code != 200:
-        print(f"Failed to retrieve {detail_full_url}: {detail_response.status_code}")
+    soup = BeautifulSoup(response.text, 'html.parser')
+    tables = soup.find_all('table')
+    
+    if len(tables) < 4:
+        print("Less than four tables found on the page.")
         return None
 
-    # Parse the detailed track page
-    detail_soup = BeautifulSoup(detail_response.text, 'html.parser')
-    track_table = detail_soup.find("table", class_="TRACKINFO")
-    if not track_table:
-        print(f"No TRACKINFO table found")
+    table = tables[3]
+    rows = table.find_all('tr')
+    table_data = []
+    
+    for row in rows[2:]:
+        cells = row.find_all(['td', 'th'])
+        row_data = [cell.text.strip() for cell in cells]
+        table_data.append(row_data)
+    
+    return table_data
+
+def scrape_typhoon_links(year):
+    """Main function to scrape typhoon links for each basin for a given year."""
+    page_html = fetch_year_page(year)
+    if page_html is None:
         return None
+    basin_links = extract_links_from_second_table(page_html)
+    return basin_links
 
-    # Parse table headers
-    headers = [header.text.strip() for header in track_table.find_all("th")]
-    typhoon_track = []
+def add_missing_dates_and_empty_cells(data):
+    """Add missing dates and fill empty cells by referencing the row above, or N / A for the first row."""
+    last_date = None
+    last_row = None
 
-    for tr in track_table.find_all("tr")[1:]:  # Skip header row
-        cells = tr.find_all("td")
-        row = {headers[i]: cells[i].text.strip() for i in range(len(cells))}
+    # Ensure the first row is filled with "N / A" for empty cells
+    if data:
+        data[0] = ['N / A' if not cell else cell for cell in data[0]]
+
+    for row in data:  # Iterate directly over rows instead of using enumerate
+        datetime_cell = row[1]
         
-        # Construct the time string
-        time_str = f"{row['Year']}-{row['Month']}-{row['Day']} {row['Hour']}:00"
-        time_obj = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+        # Handle missing dates
+        if " " in datetime_cell:
+            last_date = datetime_cell.split()[0]
+        else:
+            row[1] = f"{last_date} {datetime_cell}" if last_date else datetime_cell
 
-        lat = float(row['Lat.'])
-        long = float(row['Long.'])
-        wind_speed = int(row['Wind (kt)'])
-        pressure = int(row['Pressure (hPa)'])
+        # Fill empty cells by referencing the previous row
+        for i, cell in enumerate(row):
+            if cell == "N / A":
+                row[i] = None
+            elif not cell and last_row:  # Fill with value from the last row
+                row[i] = last_row[i]
 
-        # Convert wind speed from knots to km/h
-        wind_speed_kmh = int(wind_speed * 1.852) 
+        last_row = row  # Update the last_row reference
 
-        # Determine the typhoon class based on the Saffir-Simpson scale
-        if wind_speed_kmh < 64:  # Below Tropical Storm
-            typhoon_class = 0  
-        elif 64 <= wind_speed_kmh < 118:  # Tropical Storm
-            typhoon_class = 1
-        elif 118 <= wind_speed_kmh < 154:  # Category 1
-            typhoon_class = 2
-        elif 154 <= wind_speed_kmh < 178:  # Category 2
-            typhoon_class = 3
-        elif 178 <= wind_speed_kmh < 209:  # Category 3
-            typhoon_class = 4
-        elif 209 <= wind_speed_kmh < 252:  # Category 4
-            typhoon_class = 5
-        else:  # Category 5
-            typhoon_class = 6
+    return data
 
-        # Assign modified wind speed for visualization purposes
-        modified_wind_speed = str(wind_speed_kmh) if wind_speed_kmh >= 64 else "< 64"
 
-        # Append to the typhoon track list
-        typhoon_track.append({
-            "time": time_str,
-            "lat": lat,
-            "long": long,
-            "class": typhoon_class,
-            "speed": modified_wind_speed,
-            "pressure": pressure
-        })
-
-    if typhoon_track:
-        return {"name": typhoon_name, "path": typhoon_track}
+def get_typhoon_name_from_link(link):
+    """Extract the typhoon name from the first link's page."""
+    response = requests.get(link)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
+        name_element = soup.find('h1')
+        if name_element:
+            return name_element.get_text(strip=True)
     return None
 
-def load_cache(year, folder_path="data"):
-    """Load cached data for the specified year if it exists."""
-    cache_file = os.path.join(folder_path, f"typhoon_data_{year}.json")
+def save_cache(data, year, basin_name, folder_path="data"):
+    """Save the scraped data to a basin and year-specific cache file."""
+
+    basin_abbr = BASIN_ABBREVIATIONS.get(basin_name, "unknown")
+    if basin_abbr == "unknown":
+        print(f"Warning: No abbreviation found for basin '{basin_name}'. Using 'unknown'.")
+    
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+    # Format the filename using basin abbreviation and year
+    cache_file = os.path.join(folder_path, f"{basin_abbr}_{year}_data.json")
+    
+    with open(cache_file, "w") as file:
+        json.dump(data, file, indent=4)
+    
+    print(f"Data cached to file: {cache_file}")
+
+
+def load_cache(year, basin_name, folder_path="data"):
+    """Load cached data for the specified basin and year if it exists."""
+
+    basin_abbr = BASIN_ABBREVIATIONS.get(basin_name, "unknown")
+    if basin_abbr == "unknown":
+        print(f"Warning: No abbreviation found for basin '{basin_name}'. Using 'unknown'.")
+    
+    # Construct the cache file path
+    cache_file = os.path.join(folder_path, f"{basin_abbr}_{year}_data.json")
+    
     if os.path.exists(cache_file):
         with open(cache_file, "r") as file:
             try:
@@ -151,43 +163,134 @@ def load_cache(year, folder_path="data"):
             except json.JSONDecodeError:
                 print(f"Error loading cache file {cache_file}. Scraping new data.")
                 return None
+    else:
+        print(f"Cache file not found: {cache_file}")
     return None
 
-def save_cache(data, year, folder_path="data"):
-    """Save the scraped data to a year-specific cache file."""
-    cache_file = os.path.join(folder_path, f"typhoon_data_{year}.json")
-    with open(cache_file, "w") as file:
-        json.dump(data, file, indent=4)
-    print(f"Data cached to file: {cache_file}")
 
-def scrape_typhoon_data(year=None):
-    """Main function to scrape all typhoon data for the specified year, using cache if available."""
-    if year is None:
-        year = datetime.now().year  # Default to current year if not provided
+def save_data_as_json(year, basin_name, folder_path="data"):
+    """Save typhoon data from all links in a single JSON file."""
+    links_by_basin = scrape_typhoon_links(year)
+    if not links_by_basin:
+        print("No data available for the specified year.")
+        return None
 
-    cached_data = load_cache(year)
-    if cached_data:
-        return cached_data  # Return cached data if available
+    basin_name = basin_name.strip()
+    if basin_name not in links_by_basin:
+        print(f"Basin '{basin_name}' not found. Available basins are:")
+        for basin in links_by_basin.keys():
+            print(f" - {basin}")
+        return None
 
-    # Otherwise, scrape the data
-    main_page_html = fetch_main_page(str(year))
-    if main_page_html is None:
-        return []
+    print(f"Links for {basin_name} in {year}:")
+    for link in links_by_basin[basin_name]:
+        print(link)
 
-    typhoon_data = []
-    links = get_typhoon_links(main_page_html)
+    if not links_by_basin[basin_name]:
+        print(f"No links available for basin '{basin_name}'.")
+        return None
 
-    for link in links:
-        detail_page_html = fetch_typhoon_details(link)
-        if detail_page_html is None:
+    all_typhoon_data = []
+
+    for link in links_by_basin[basin_name]:
+        print(f"\nFetching typhoon name from {link}...")
+        typhoon_name = get_typhoon_name_from_link(link)
+        
+        if not typhoon_name:
+            print(f"Failed to extract typhoon name for {link}. Skipping.")
+            continue
+        
+        # Split the string into words
+        composite_name = typhoon_name.split()
+
+        # Get the second-to-last word
+        if len(composite_name) >= 2:
+            typhoon_name = composite_name[-2]
+        else:
+            typhoon_name = "UNKNOWN"
+
+        print(f"Fetching data from {link}...")
+        fourth_table_data = scrape_fourth_table(link)
+        
+        if not fourth_table_data:
+            print(f"Failed to extract data from the fourth table for {link}. Skipping.")
             continue
 
-        typhoon_info = extract_typhoon_track(detail_page_html)
-        if typhoon_info:
-            typhoon_data.append(typhoon_info)
+        processed_data = add_missing_dates_and_empty_cells(fourth_table_data)
 
-    # Cache the newly scraped data
-    if typhoon_data:
-        save_cache(typhoon_data, year)
+        typhoon_data = {
+            "name": typhoon_name,
+            "path": []
+        }
 
-    return typhoon_data
+        for row in processed_data:
+            time = row[1]
+            if time:
+                try:
+                    time_obj = datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+                    time = time_obj.strftime("%Y-%m-%d %H:%M")
+                except ValueError:
+                    pass
+
+            lat = row[3] if row[3] != "N / A" else None
+            long = row[4] if row[4] != "N / A" else None
+            speed = row[5] if row[5] != "N / A" else None
+            pressure = row[6] if row[6] != "N / A" else None
+
+            if speed:
+                speed = int(speed)
+                if speed < 34:
+                    typhoon_class = "0"
+                elif 34 <= speed <= 63:
+                    typhoon_class = "1"
+                elif 64 <= speed <= 82:
+                    typhoon_class = "2"
+                elif 83 <= speed <= 95:
+                    typhoon_class = "3"
+                elif 96 <= speed <= 112:
+                    typhoon_class = "4"
+                elif speed >= 113:
+                    typhoon_class = "5"
+            else:
+                typhoon_class = "0"
+
+            typhoon_data["path"].append({
+                "time": time,
+                "lat": float(lat) if lat else None,
+                "long": float(long) if long else None,
+                "speed": str(speed) if speed else "< 35",
+                "pressure": str(pressure) if pressure else "> 1008",
+                "class": int(typhoon_class)
+            })
+
+        if processed_data:
+            try:
+                start_time = datetime.strptime(processed_data[0][1], "%Y-%m-%d %H:%M:%S")
+                start_time = start_time.replace(second=0)
+                typhoon_data["start_time"] = int(start_time.timestamp())
+            except ValueError:
+                typhoon_data["start_time"] = None
+
+        all_typhoon_data.append(typhoon_data)
+
+    save_cache(all_typhoon_data, year, basin_name, folder_path)
+    return all_typhoon_data
+
+def scrape_typhoon_data(year, basin_name, folder_path="data"):
+    """Main function to either return existing data or scrape and return new data."""
+    data = load_cache(year, basin_name, folder_path)
+    if data:
+        return data
+    else:
+        print(f"Cache not found. Scraping data for {basin_name} in {year}.")
+        return save_data_as_json(year, basin_name, folder_path)
+
+# Example usage:
+if __name__ == "__main__":
+    year = 2015
+    basin = "Western Pacific"
+    data = scrape_typhoon_data(year, basin)
+    if data:
+        print(f"Fetched and cached {len(data)} typhoons.")
+    else:
+        print("No data available.")

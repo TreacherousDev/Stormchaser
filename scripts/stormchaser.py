@@ -1,12 +1,14 @@
 import pygame
 import typhoon_scraper as ty
 from datetime import datetime, timedelta
-import western_pacific_map_maker as mapmaker
+import map_maker as mapmaker
 from map_image_processor import MapImageProcessor
 from typhoon_icon import Typhoon
 from buttons import Button, ToggleableButton
+import threading
 import os
 import sys
+import time
 
 # Function to get the absolute path to a resource
 def get_resource_path(relative_path):
@@ -23,11 +25,20 @@ def get_resource_path(relative_path):
 # Global variables and constants
 typhoons = None
 earliest_time = None
+loading = False  # Flag to control the loading screen
 TIME_SCALE_FACTOR = 1 / (12 * 60 * 60)  # 1 second per 12 hours in real-time 
 SCREEN_WIDTH, SCREEN_HEIGHT = 1200, 900
 # Using get_resource_path to load the image from the resources folder
-REFERENCE_MAP = MapImageProcessor.load_image(get_resource_path("../resources/simple_western_pacific_map.png"))
-
+reference_map = None
+BASIN_ABBREVIATIONS = {
+    "Northern Atlantic": "na",
+    "Eastern Pacific" : "ep",
+    "Western Pacific": "wp",
+    "Northern Indian": "ni",
+    "Southern Indian": "si"
+    # "Southern Pacific": "sp"
+}
+selected_basin = "Western Pacific"
 
 category_colors = {
     0: (135, 206, 235),  # Light Blue
@@ -39,24 +50,52 @@ category_colors = {
 }
 
 # Function to initialize the dataset based on the start date
-def initialize_dataset(start_date):
-    global typhoons, earliest_time
+def initialize_dataset(screen, screen_width, screen_height, start_date, selected_basin):
+    global typhoons, earliest_time, loading
+    basin_name = selected_basin.replace("_", " ").title()
+    loading = True
+    typhoons = []
 
-    typhoons = ty.scrape_typhoon_data(start_date.year)
+    # Start scraping typhoon data in a background thread
+    def scrape_data():
+        global typhoons
+        typhoons = ty.scrape_typhoon_data(start_date.year, basin_name)
+        
+        # Filter typhoons by start date after scraping is done
+        if start_date:
+            typhoons = filter_typhoons_by_start_date(typhoons, start_date)
 
-    # Filter typhoons by start date
-    if start_date:
-        typhoons = filter_typhoons_by_start_date(typhoons, start_date)
+        if not typhoons:
+            print(f"No typhoons found starting after {start_date}.")
+            return
 
-    if not typhoons:
-        print(f"No typhoons found starting after {start_date}.")
-        return
+        # Calculate the earliest time across all typhoons
+        global earliest_time
+        earliest_time = get_earliest_time(typhoons)
 
-    # Calculate the earliest time across all typhoons
-    earliest_time = get_earliest_time(typhoons)
+        # Set start times for each typhoon relative to the earliest time
+        set_typhoon_start_times(typhoons, earliest_time)
+        
+        # Mark loading as complete
+        global loading
+        loading = False
 
-    # Set start times for each typhoon relative to the earliest time
-    set_typhoon_start_times(typhoons, earliest_time)
+    # Create and start the scraping thread
+    scrape_thread = threading.Thread(target=scrape_data)
+    scrape_thread.start()
+
+    # While the scraping is running, show a loading screen
+    while loading:
+        screen.fill((0, 0, 0))  # Clear screen with black
+        font = pygame.font.SysFont("Arial", 24)
+        loading_text = font.render("Loading typhoon data...", True, (255, 255, 255))
+        screen.blit(loading_text, (screen_width // 2 - loading_text.get_width() // 2, screen_height // 2 - loading_text.get_height() // 2))
+        pygame.display.update()  # Update the screen
+        time.sleep(0.1)  # Delay for a short time to prevent 100% CPU usage
+
+    # After scraping is done, proceed with the next steps
+    print("Data scraping complete!")
+    return typhoons
 
 # Function to filter typhoons based on the start date
 def filter_typhoons_by_start_date(typhoons, start_date):
@@ -91,7 +130,6 @@ def render_input_box(screen, label, x, y, width, height, active, text, font, col
 
     # Create a transparent surface for the input box
     input_box_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-    input_box_surface.fill((color[0], color[1], color[2], 100))
 
     # Draw the input box with rounded corners on the transparent surface
     pygame.draw.rect(input_box_surface, (color[0], color[1], color[2], 150), (0, 0, width, height), 0, border_radius=12)
@@ -107,22 +145,32 @@ def render_input_box(screen, label, x, y, width, height, active, text, font, col
     label_surface.set_alpha(200)  # Set 50% transparency for the label
     screen.blit(label_surface, (x + (width - label_surface.get_width()) // 2, y + height + 2))
 
+def render_basin_button(screen, button, x, y, width, height, button_font, button_active_color, button_inactive_color):
+    # Choose color based on whether the button is active or not
+    color = button_active_color if button["active"] else button_inactive_color
+    
+    # Create a transparent surface for the button
+    button_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-# Function to initialize the Pygame window and input UI with modern look
-def initialize_input_ui():
-     
-    screen_height = 450
-    screen_width = 600
-    screen = pygame.display.set_mode((screen_width, screen_height))
-    pygame.display.set_caption("Enter Start Date")
+    # Draw the button with rounded corners on the transparent surface
+    pygame.draw.rect(button_surface, (color[0], color[1], color[2], 128), (0, 0, width, height), border_radius=5)
+    screen.blit(button_surface, (x, y))  # Blit the transparent button to the main screen
+
+    # Render the text inside the button
+    button_text = button_font.render(button["label"], True, (51,52,109))
+    text_rect = button_text.get_rect(center=(x + width // 2, y + height // 2))
+    screen.blit(button_text, text_rect)
+
+# Main UI function with updated button rendering
+def initialize_input_ui(screen, screen_width, screen_height):
     font = pygame.font.SysFont("Impact", 36)  # Modern font for text input
     label_font = pygame.font.SysFont("Arial", 15, bold=True)  # Smaller font for labels
     title_font = pygame.font.SysFont("Impact", 58)  # Larger font for title
+    button_font = pygame.font.SysFont("Impact", 15)  # Font for buttons
     clock = pygame.time.Clock()
 
     # Load map background
     map_image = pygame.image.load(mapmaker.get_detailed_map_image()).convert()
-    # Scale the map to fit the window size while maintaining the aspect ratio
     map_width, map_height = map_image.get_size()
     aspect_ratio = map_width / map_height
     new_width = screen_width
@@ -138,66 +186,88 @@ def initialize_input_ui():
     input_box_height = 50
     spacing = 30  # Space between the input boxes
 
-    # Calculate the total width of all input boxes and the spacing between them
-    total_width = (input_box_width * 3) + (spacing * 2)  # 3 input boxes and 2 gaps between
-    start_x = (600 - total_width) // 2  # Center the input boxes on the screen
+    total_width = (input_box_width * 3) + (spacing * 2)
+    start_x = (600 - total_width) // 2
 
-    # Input boxes for year, month, and day with modernized design
     input_boxes = [
         {"label": "Year", "x": start_x, "y": 200, "width": input_box_width, "height": input_box_height, "active": False, "text": ""},
         {"label": "Month (optional)", "x": start_x + input_box_width + spacing, "y": 200, "width": input_box_width, "height": input_box_height, "active": False, "text": ""},
         {"label": "Day (optional)", "x": start_x + 2 * (input_box_width + spacing), "y": 200, "width": input_box_width, "height": input_box_height, "active": False, "text": ""}
     ]
+    
+    buttons = [
+        {"label": "North Atlantic", "code": "northern_atlantic", "active": False},
+        {"label": "East Pacific", "code": "eastern_pacific", "active": False},
+        {"label": "West Pacific", "code": "western_pacific", "active": True},  # Set WP to active by default
+        {"label": "North Indian", "code": "northern_indian", "active": False},
+        {"label": "South Indian", "code": "southern_indian", "active": False}
+    ]
 
-    # Modern color scheme
+    button_width = 105
+    button_height = 30
+    button_spacing = 10
+    button_start_x = (screen_width - (button_width * len(buttons) + button_spacing * (len(buttons) - 1))) // 2
+    button_y = 280
+    for i, button in enumerate(buttons):
+        button["x"] = button_start_x + i * (button_width + button_spacing)
+        button["y"] = button_y
+        # button["active"] = False
+
     color_active = pygame.Color("dodgerblue2")
     color_inactive = pygame.Color("lightskyblue3")
+    button_active_color = pygame.Color("lawngreen")
+    button_inactive_color = pygame.Color("lightgreen")
     done = False
 
-    # Main loop for the input UI
     while not done:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                return None
+                return None, None
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 for box in input_boxes:
                     box["active"] = box["x"] < event.pos[0] < box["x"] + box["width"] and box["y"] < event.pos[1] < box["y"] + box["height"]
+                for button in buttons:
+                    if button["x"] < event.pos[0] < button["x"] + button_width and button["y"] < event.pos[1] < button["y"] + button_height:
+                        for b in buttons:
+                            b["active"] = False
+                        button["active"] = True
             elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    done = True
                 for box in input_boxes:
                     if box["active"]:
                         if event.key == pygame.K_BACKSPACE:
                             box["text"] = box["text"][:-1]
-                        elif event.key == pygame.K_RETURN:
-                            done = True
                         else:
                             box["text"] += event.unicode
 
-        screen.blit(map_image, (0, 0))  # Draw the map once
-        # Loop to render input boxes with labels below the textboxes
+        screen.blit(map_image, (0, 0))
+
         for box in input_boxes:
             render_input_box(screen, box["label"], box["x"], box["y"], box["width"], box["height"], box["active"], box["text"], font, color_active, color_inactive, label_font)
- 
-        # Render the title at the top
+        
+        # Render buttons using the new function
+        for button in buttons:
+            render_basin_button(screen, button, button["x"], button["y"], button_width, button_height, button_font, button_active_color, button_inactive_color)
+
         title_text = "PROJECT STORMCHASER"
-        main_color = (82,150,63) # Land Green
-        outline_color = (51,52,109) # Ocean Blue
-        title_position = (300 - title_font.size(title_text)[0] // 2, 30)  # Centered position
+        main_color = (82,150,63)
+        outline_color = (51,52,109)
+        title_position = (300 - title_font.size(title_text)[0] // 2, 30)
         render_text_with_outline(title_text, title_font, main_color, outline_color, title_position, screen, 4)
         
         submit_text = font.render("Press Enter to Submit", True, (255, 255, 255))
-        # Create a new surface with alpha transparency
         submit_text_surface = pygame.Surface(submit_text.get_size(), pygame.SRCALPHA)
-        submit_text_surface.blit(submit_text, (0, 0))  # Draw the text onto the surface
-        submit_text_surface.set_alpha(200)  # Set 50% transparency (128 out of 255)
-        # Blit the transparent text surface onto the screen
-        screen.blit(submit_text_surface, (300 - submit_text.get_width() // 2, 400))  # Adjusted position for submit text
+        submit_text_surface.blit(submit_text, (0, 0))
+        submit_text_surface.set_alpha(200)
+        screen.blit(submit_text_surface, (300 - submit_text.get_width() // 2, 400))
 
-        # Update display
         pygame.display.flip()
         clock.tick(30)
 
-    return parse_start_date(input_boxes)
+    selected_basin = next((button["code"] for button in buttons if button["active"]), None)
+    return parse_start_date(input_boxes), selected_basin
 
 # Function to render text with outline
 def render_text_with_outline(text, font, color, outline_color, position, screen, outline_offset=2):
@@ -250,14 +320,20 @@ def parse_start_date(input_boxes):
 ###########################
 # Main Animation Function #
 ###########################
-def animate_typhoons(year):
+def animate_typhoons(year, basin):
     # Initialize Pygame
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
     pygame.display.set_caption("PROJECT STORMCHASER")
 
-    # Load map background
-    map_image = pygame.image.load(mapmaker.create_western_pacific_map()).convert()
+    # Generate file paths for the maps dynamically based on the basin parameter
+    detailed_map_filename = f"../resources/{basin}_detailed_map.png"
+    simple_map_filename = f"../resources/{basin}_simple_map.png"
+
+    # Load reference map and detailed map
+    reference_map = MapImageProcessor.load_image(get_resource_path(simple_map_filename))
+    map_image = pygame.image.load(get_resource_path(detailed_map_filename)).convert()
+
     # Scale the map to fit the window size while maintaining the aspect ratio
     map_width, map_height = map_image.get_size()
     aspect_ratio = map_width / map_height
@@ -270,10 +346,10 @@ def animate_typhoons(year):
     map_image = pygame.transform.scale(map_image, (new_width, new_height))
 
     clock = pygame.time.Clock()
-
+    
     # Create Typhoon objects
     typhoon_objects = [
-        Typhoon(typhoon['name'], typhoon['path'], typhoon['start_time'], category_colors, SCREEN_WIDTH, SCREEN_HEIGHT, TIME_SCALE_FACTOR, REFERENCE_MAP)
+        Typhoon(typhoon['name'], typhoon['path'], typhoon['start_time'], category_colors, SCREEN_WIDTH, SCREEN_HEIGHT, TIME_SCALE_FACTOR, reference_map, basin)
         for typhoon in typhoons
     ]
 
@@ -374,10 +450,14 @@ def animate_typhoons(year):
 def main():
     pygame.init()
     pygame.font.init()
-
+    screen_height = 450
+    screen_width = 600
+    screen = pygame.display.set_mode((screen_width, screen_height))
+    pygame.display.set_caption("PROJECT STORMCHASER MAIN MENU")
+    
     while True:
         # Get the start date from the input UI
-        start_date = initialize_input_ui()
+        start_date, selected_basin = initialize_input_ui(screen, screen_width, screen_height)
         if not start_date:
             print("Invalid date entered. Please try again.")
             
@@ -393,19 +473,16 @@ def main():
         print(f"Start Date: {start_date}")
         break  # Exit the loop if a valid date is entered
 
-
     # Initialize the typhoon dataset based on the selected start date
-    initialize_dataset(start_date)
+    initialize_dataset(screen, screen_width, screen_height, start_date, selected_basin)
     
-    # Close Pygame and quit
+    # After scraping is done, proceed with the next steps
+    print("Data scraping complete!")
     pygame.quit()
-
-    # Start the typhoon animation in a new window
-    pygame.init()
-    animate_typhoons(start_date.year)
+    animate_typhoons(start_date.year, selected_basin)
 
 # Run the main function
 if __name__ == "__main__":
     main()
     
-# pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --noconsole --icon=resources\stormchaser.ico scripts/stormchaser.py
+# pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --noconsole --icon=resources\_stormchaser.ico scripts/stormchaser.py

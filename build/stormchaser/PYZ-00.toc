@@ -764,6 +764,10 @@
    'C:\\Users\\adant\\OneDrive\\Documents\\GitHub\\Project '
    'Stormchaser\\scripts\\map_image_processor.py',
    'PYMODULE'),
+  ('map_maker',
+   'C:\\Users\\adant\\OneDrive\\Documents\\GitHub\\Project '
+   'Stormchaser\\scripts\\map_maker.py',
+   'PYMODULE'),
   ('matplotlib',
    'C:\\Users\\adant\\AppData\\Roaming\\Python\\Python312\\site-packages\\matplotlib\\__init__.py',
    'PYMODULE'),
@@ -3622,10 +3626,6 @@
    'PYMODULE'),
   ('uuid', 'C:\\Python312\\Lib\\uuid.py', 'PYMODULE'),
   ('webbrowser', 'C:\\Python312\\Lib\\webbrowser.py', 'PYMODULE'),
-  ('western_pacific_map_maker',
-   'C:\\Users\\adant\\OneDrive\\Documents\\GitHub\\Project '
-   'Stormchaser\\scripts\\western_pacific_map_maker.py',
-   'PYMODULE'),
   ('wheel',
    'C:\\Python312\\Lib\\site-packages\\wheel\\__init__.py',
    'PYMODULE'),
