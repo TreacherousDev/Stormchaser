@@ -6,7 +6,7 @@ See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app i
 ![11261-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/eb3d1328-e84d-424f-8b38-c1753caaf35b)
 
 ## 🌟 Features
-- **Supports 5 Different Regions**: Northern Atlantic, Eastern Pacific, Western Pacific, Northern Indian and Southern Indian
+- **Supports 5 Different Regions**: Northern Atlantic, Eastern & Western Pacific, Northern & Southern Indian
 - **Real-time Typhoon Tracking**: Visualizes typhoon paths with smooth animations
 - **Dynamic Color Coding**: Changes typhoon colors based on intensity categories
 - **Landfall Detection**: Automatically detects and marks typhoon landfall points
