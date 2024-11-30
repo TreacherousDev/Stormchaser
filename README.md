@@ -1,6 +1,6 @@
 # Project Stormchaser 🌀
 
-A real-time typhoon visualization system that scrapes and animates tropical storms worldwide. <br/>
+A simulated real-time typhoon visualization system that scrapes and animates tropical storms worldwide. <br/>
 See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app installation
 
 ![11261-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/eb3d1328-e84d-424f-8b38-c1753caaf35b)
@@ -30,7 +30,7 @@ See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app i
   - Wind speeds
   - Pressure data
   - Timestamps
-- Caches data as a '.JSON' to 'root/data' folder
+- Caches data as a `.JSON` to `root/data` folder
 
 ### Visualization Engine (`stormchaser.py`)
 - Built with Pygame for smooth real-time animations
@@ -58,7 +58,7 @@ See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app i
       5: (255, 0, 255)     # Purple
   }
   ```
-- **Information Display**: Shows name, wind speed (km/h), and pressure (hPa)
+- **Information Display**: Shows name, wind speed (kt), and pressure (hPa)
 
 ### Animation Effects
 - Smooth fade-in/fade-out transitions
@@ -177,7 +177,7 @@ pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --nocons
 
 ## 🙏 Acknowledgments
 
-- Data source: Digital Typhoon (http://agora.ex.nii.ac.jp/digital-typhoon/)
+- Data source: IBTRACS ([http://agora.ex.nii.ac.jp/digital-typhoon/](https://ncics.org/ibtracs/index.php?name=browse-year-basin))
 - Map data: Natural Earth via Cartopy
 - Compilation: Hispano @[zk12-dev](https://github.com/zk12-dev) 
 
