@@ -9,10 +9,9 @@ BASINS = {
     "Western Pacific": [100, 180, 0, 60],
     "Northern Atlantic": [-100, -20, 0, 60],
     "Eastern Pacific": [-175, -95, 0, 60],
-    "Northern Indian": [50, 100, 0, 30],
-    "Southern Indian": [20, 120, -75, 0]
-    # South Pacific is bugged because it corsses the border of Cartopy's Map
-    # "Southern Pacific": [160, 260, -50, 0]
+    "Northern Indian": [40, 100, -10, 35],
+    "Southern Indian": [20, 120, -75, 0],
+    "Southern Pacific": [135, 215, -60, 0]
 }
 def get_resource_path(relative_path):
     """Get the absolute path to the resource file, works both in development and PyInstaller bundle."""
@@ -82,13 +81,12 @@ def create_basin_map(basin_name, extent, output_path=None, detailed=True):
         return output_path
 
     # Adjust the extent to fit the 4:3 aspect ratio
+    # midpoint = (extent[0] + extent[1]) / 2
     adjusted_extent = adjust_to_aspect_ratio(extent)
 
-    # Configure figure dimensions
     fig = plt.figure(figsize=(8, 6), dpi=300)  # 4:3 aspect ratio
-    ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
+    ax = fig.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=180 if basin_name == 'Southern Pacific' else 0))
 
-    # Set map extent
     ax.set_extent(adjusted_extent, crs=ccrs.PlateCarree())
 
     # Add features
@@ -178,6 +176,7 @@ def main():
         print(f"Detailed map saved at: {detailed_map}")
         print(f"Simple map saved at: {simple_map}")
 
+    print("done")
 
 if __name__ == "__main__":
     main()

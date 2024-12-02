@@ -21,7 +21,7 @@ class Typhoon:
             "western_pacific": [100, 180, 0, 60],
             "northern_atlantic": [-100, -20, 0, 60],
             "eastern_pacific": [-175, -95, 0, 60],
-            "northern_indian": [50, 100, 0, 30],
+            "northern_indian": [40, 100, -10, 35],
             "southern_indian": [20, 120, -75, 0]
         }
 
