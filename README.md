@@ -1,9 +1,8 @@
 # Project Stormchaser 🌀
+![11261-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/eb3d1328-e84d-424f-8b38-c1753caaf35b)  
+Project Stormchaser is an animation engine that simulates tropical storms of the past in synchronous time. It scrapes the [IBTRACS](https://ncics.org/ibtracs/index.php?name=browse-year-basin) website for storms, filtered by year and basin according to user input. It then displays a visualization of tropical storms paths, animating their tracks and intensities at the current time, accurate to every 3-hour interval.  
 
-A simulated real-time typhoon visualization system that scrapes and animates tropical storms worldwide. <br/>
-See [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app installation
-
-![11261-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/eb3d1328-e84d-424f-8b38-c1753caaf35b)
+Stormchaser is also available bundled as a Windows executable. Please see [releases](https://github.com/TreacherousDev/Stormchaser/releases) for app installation.
 
 ## 🌟 Features
 - **Supports 5 Different Regions**: Northern Atlantic, Eastern & Western Pacific, Northern & Southern Indian
@@ -177,7 +176,7 @@ pyinstaller --add-data "resources/*;resources" --add-data "data/*;data" --nocons
 
 ## 🙏 Acknowledgments
 
-- Data source: IBTRACS ([http://agora.ex.nii.ac.jp/digital-typhoon/](https://ncics.org/ibtracs/index.php?name=browse-year-basin))
+- Data source: [IBTRACS](https://ncics.org/ibtracs/index.php?name=browse-year-basin)
 - Map data: Natural Earth via Cartopy
 - Compilation: Hispano @[zk12-dev](https://github.com/zk12-dev) 
 
