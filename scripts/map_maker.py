@@ -81,10 +81,12 @@ def create_basin_map(basin_name, extent, output_path=None, detailed=True):
         return output_path
 
     # Adjust the extent to fit the 4:3 aspect ratio
-    # midpoint = (extent[0] + extent[1]) / 2
     adjusted_extent = adjust_to_aspect_ratio(extent)
 
     fig = plt.figure(figsize=(8, 6), dpi=300)  # 4:3 aspect ratio
+    # Central longitude must be adjusted for the Southern Pacific sso that the map doesnt get cut in half. 
+    # Do note that a nonzero central lomngitude takes a LOT more time to generate maps because it has to recompute each vector to the new one.
+    # This is a solution that unforuntately compromises time.
     ax = fig.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=180 if basin_name == 'Southern Pacific' else 0))
 
     ax.set_extent(adjusted_extent, crs=ccrs.PlateCarree())
